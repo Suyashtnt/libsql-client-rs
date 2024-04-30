@@ -31,6 +31,7 @@ pub enum InnerClient {
     Workers(crate::workers::HttpClient),
     #[cfg(feature = "spin_backend")]
     Spin(crate::spin::HttpClient),
+    Default,
 }
 
 impl InnerClient {
@@ -47,6 +48,7 @@ impl InnerClient {
             InnerClient::Workers(client) => client.send(url, auth, body).await,
             #[cfg(feature = "spin_backend")]
             InnerClient::Spin(client) => client.send(url, auth, body).await,
+            _ => panic!("Must enable at least one feature"),
         }
     }
 }
@@ -168,11 +170,19 @@ impl Client {
         } else {
             Cookie::default()
         };
+        let requests = if tx_id != 0 {
+            vec![pipeline::StreamRequest::Execute(
+                pipeline::StreamExecuteReq { stmt },
+            )]
+        } else {
+            vec![
+                pipeline::StreamRequest::Execute(pipeline::StreamExecuteReq { stmt }),
+                pipeline::StreamRequest::Close,
+            ]
+        };
         let msg = pipeline::ClientMsg {
             baton: cookie.baton,
-            requests: vec![pipeline::StreamRequest::Execute(
-                pipeline::StreamExecuteReq { stmt },
-            )],
+            requests,
         };
         let body = serde_json::to_string(&msg)?;
         let url = cookie
@@ -203,7 +213,8 @@ impl Client {
                 response.results
             );
         }
-        if response.results.len() > 1 {
+        if response.results.len() > 2 {
+            // One with actual results, one closing the stream
             anyhow::bail!(
                 "Unexpected multiple responses from server: {:?}",
                 response.results

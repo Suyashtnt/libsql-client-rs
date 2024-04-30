@@ -6,6 +6,11 @@
 //! libsql-client compiles to wasm32-unknown-unknown target, which makes it a great
 //! driver for environments that run on WebAssembly.
 //!
+#![deprecated(
+    since = "0.33.0",
+    note = "this crate has been deprecated, please use the `libsql` crate instead"
+)]
+
 pub mod statement;
 pub use statement::Statement;
 
@@ -14,6 +19,9 @@ pub use proto::{BatchResult, Col, Value};
 
 #[cfg(feature = "mapping_names_to_values_in_rows")]
 pub mod de;
+
+#[cfg(feature = "workers_backend")]
+pub use worker;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 /// Represents a row returned from the database.
